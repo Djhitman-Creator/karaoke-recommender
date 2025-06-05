@@ -1,15 +1,29 @@
-
 import React, { useState, useEffect } from "react";
 import Papa from "papaparse";
 
 export default function KaraokeKeyApp() {
   const [songTitle, setSongTitle] = useState("");
   const [artistName, setArtistName] = useState("");
-  const [genreFilter, setGenreFilter] = useState("");
   const [results, setResults] = useState(null);
   const [affiliateData, setAffiliateData] = useState([]);
-  const [genres, setGenres] = useState([]);
   const [showDescription, setShowDescription] = useState(false);
+  const [darkMode, setDarkMode] = useState(false);
+
+  // Load dark mode preference or system preference on initial load
+  useEffect(() => {
+    const savedTheme = localStorage.getItem("karaoke-dark-mode");
+    if (savedTheme !== null) {
+      setDarkMode(savedTheme === "true");
+    } else {
+      const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+      setDarkMode(prefersDark);
+    }
+  }, []);
+
+  // Save dark mode preference when changed
+  useEffect(() => {
+    localStorage.setItem("karaoke-dark-mode", darkMode);
+  }, [darkMode]);
 
   useEffect(() => {
     fetch("/affiliate-data.csv")
@@ -19,35 +33,24 @@ export default function KaraokeKeyApp() {
           header: true,
           skipEmptyLines: true,
           complete: (results) => {
-            const data = results.data;
-            setAffiliateData(data);
-            const uniqueGenres = [...new Set(data.map((item) => item.genre).filter(Boolean))];
-            setGenres(uniqueGenres);
+            setAffiliateData(results.data);
           },
         });
       });
   }, []);
 
   const handleSearch = async () => {
-    let recommendedSongs = Array.from({ length: 30 }, (_, i) => ({
-      title: `Song ${i + 1}`,
-      artist: `Artist ${i + 1}`,
-    }));
+    // Create a new shuffled copy to ensure randomness each time
+    const shuffled = [...affiliateData].sort(() => 0.5 - Math.random());
+    const recommendedSongs = shuffled.slice(0, 30);
 
-    const enriched = recommendedSongs.map((song) => {
-      const match = affiliateData.find(
-        (item) =>
-          item.song?.toLowerCase() === song.title.toLowerCase() &&
-          item.artist?.toLowerCase() === song.artist.toLowerCase() &&
-          (!genreFilter || item.genre === genreFilter)
-      );
-      return {
-        ...song,
-        url: match?.url || null,
-        preview: match?.preview || null,
-        genre: match?.genre || null,
-      };
-    });
+    const enriched = recommendedSongs.map((song) => ({
+      title: song.song,
+      artist: song.artist,
+      url: song.url || null,
+      preview: song.preview || null,
+      genre: song.genre || null,
+    }));
 
     setResults({
       key: "C Major",
@@ -56,15 +59,28 @@ export default function KaraokeKeyApp() {
     });
   };
 
+  const bgColor = darkMode ? "#1a1a1a" : "#fff";
+  const textColor = darkMode ? "#f0f0f0" : "#2b2b2b";
+  const cardBg = darkMode ? "#2a2a2a" : "#f9f9f9";
+  const borderColor = darkMode ? "#444" : "#ccc";
+
   return (
-    <div style={{ minHeight: "100vh", background: "#fff", color: "#2b2b2b", padding: "1rem" }}>
+    <div style={{ minHeight: "100vh", background: bgColor, color: textColor, padding: "1rem" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", maxWidth: "800px", margin: "0 auto 1.5rem" }}>
-        <img src="/KH DJ BOOTH LOGO LARGE.png" alt="Karaoke Houston Logo" style={{ height: "8rem" }} />
-        <button onClick={() => setShowDescription(true)} style={{ marginLeft: "1rem", color: "#d42900", border: "1px solid #d42900", padding: "0.5rem 1rem", background: "transparent", borderRadius: "5px" }}>What is this?</button>
+        <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+          <img src="/KH DJ BOOTH LOGO LARGE.png" alt="Karaoke Houston Logo" style={{ height: "8rem" }} />
+          <span style={{ fontSize: "1.5rem" }}>Find Your Next Hit!</span>
+        </div>
+        <div style={{ display: "flex", gap: "0.5rem" }}>
+          <button onClick={() => setShowDescription(true)} style={{ color: "#d42900", border: "1px solid #d42900", padding: "0.5rem 1rem", background: "transparent", borderRadius: "5px" }}>What is this?</button>
+          <button onClick={() => setDarkMode(!darkMode)} style={{ color: darkMode ? "#fff" : "#333", background: darkMode ? "#333" : "#eee", border: "1px solid #999", padding: "0.5rem 1rem", borderRadius: "5px" }}>
+            {darkMode ? "Light Mode" : "Dark Mode"}
+          </button>
+        </div>
       </div>
 
       {showDescription && (
-        <div style={{ maxWidth: "600px", margin: "0 auto 1rem", padding: "1rem", border: "1px solid #ccc", borderRadius: "10px", background: "#f9f9f9" }}>
+        <div style={{ maxWidth: "600px", margin: "0 auto 1rem", padding: "1rem", border: `1px solid ${borderColor}`, borderRadius: "10px", background: cardBg }}>
           <h2 style={{ fontSize: "1.25rem", fontWeight: "bold", marginBottom: "0.5rem" }}>Welcome to Our Song Recommender</h2>
           <p>
             Enter one of your favorite songs to sing, and we’ll provide a curated list of other songs in the same key and vocal range — helping you discover new songs that suit your voice and style.
@@ -74,35 +90,26 @@ export default function KaraokeKeyApp() {
       )}
 
       <div style={{ maxWidth: "800px", margin: "0 auto", display: "flex", flexDirection: "column", gap: "1rem" }}>
+        <p style={{ fontSize: "1rem", marginBottom: "0.5rem" }}>Enter a song you are comfortable singing.</p>
         <input
           placeholder="Enter Song Title"
           value={songTitle}
           onChange={(e) => setSongTitle(e.target.value)}
-          style={{ border: "1px solid #d42900", padding: "0.5rem", borderRadius: "5px" }}
+          style={{ border: "1px solid #d42900", padding: "0.5rem", borderRadius: "5px", background: darkMode ? "#333" : "#fff", color: textColor }}
         />
         <input
           placeholder="Enter Artist Name"
           value={artistName}
           onChange={(e) => setArtistName(e.target.value)}
-          style={{ border: "1px solid #d42900", padding: "0.5rem", borderRadius: "5px" }}
+          style={{ border: "1px solid #d42900", padding: "0.5rem", borderRadius: "5px", background: darkMode ? "#333" : "#fff", color: textColor }}
         />
-        <select
-          value={genreFilter}
-          onChange={(e) => setGenreFilter(e.target.value)}
-          style={{ border: "1px solid #d42900", padding: "0.5rem", borderRadius: "5px" }}
-        >
-          <option value="">All Genres</option>
-          {genres.map((genre, idx) => (
-            <option key={idx} value={genre}>{genre}</option>
-          ))}
-        </select>
 
         <button onClick={handleSearch} style={{ background: "#d42900", color: "#fff", padding: "0.75rem", borderRadius: "5px", border: "none" }}>
           Find Songs in Same Key
         </button>
 
         {results && (
-          <div style={{ marginTop: "2rem", border: "1px solid #ccc", padding: "1rem", borderRadius: "10px" }}>
+          <div style={{ marginTop: "2rem", border: `1px solid ${borderColor}`, padding: "1rem", borderRadius: "10px", background: cardBg }}>
             <p><strong>Detected Key:</strong> {results.key}</p>
             <p><strong>Estimated Vocal Range:</strong> {results.vocalRange}</p>
             <p><strong>Similar Songs:</strong></p>
